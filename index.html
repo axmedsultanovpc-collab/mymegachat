@@ -2,107 +2,137 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chat Fix Elite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Cloud Chat</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
+        /* Сброс базовых отступов */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
+        /* Главный контейнер на весь экран */
         body { 
-            font-family: -apple-system, system-ui, sans-serif; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            height: 100vh; 
-            /* Важно для мобилок */
-            position: fixed;
-            width: 100%;
-            overflow: hidden;
+            /* 100dvh - динамическая высота, спасает от мобильной клавиатуры */
+            height: 100dvh; 
+            min-height: 100vh;
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; /* Скроллить будем только сообщения, а не весь сайт */
         }
 
+        /* 1. ШАПКА (Сверху, не сжимается) */
         .header {
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.2);
+            flex: 0 0 auto;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             color: white;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            height: 60px;
+            z-index: 10;
         }
-        #typing-status { font-size: 12px; color: #adff2f; opacity: 0; transition: 0.2s; }
+        .header h1 { font-size: 18px; font-weight: 600; }
+        #typing-status { font-size: 13px; color: #adff2f; height: 16px; font-style: italic; opacity: 0; transition: opacity 0.3s; margin-top: 2px; }
 
+        /* 2. СПИСОК СООБЩЕНИЙ (Посередине, занимает всё свободное место) */
         #messages { 
+            flex: 1 1 auto; 
             list-style: none; 
             padding: 15px; 
-            height: calc(100vh - 130px); /* Вычитаем высоту шапки и панели ввода */
             overflow-y: auto; 
             display: flex; 
             flex-direction: column; 
             gap: 12px;
-            -webkit-overflow-scrolling: touch;
+            -webkit-overflow-scrolling: touch; /* Плавный скролл для iOS */
         }
 
+        /* Дизайн сообщений */
         #messages li { 
-            padding: 12px 16px; 
+            padding: 10px 14px; 
             border-radius: 18px; 
-            background: white;
+            background: rgba(255, 255, 255, 0.95);
             color: #333;
             max-width: 85%; 
-            min-width: 100px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            min-width: 80px;
+            font-size: 16px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             word-wrap: break-word;
+            animation: slideUp 0.3s ease-out;
         }
 
+        /* Мои сообщения (Зеленые) */
         #messages li.my { 
             background: #25d366; 
             color: white;
             align-self: flex-end; 
             border-bottom-right-radius: 4px;
         }
+        
+        #messages li b { display: block; font-size: 11px; margin-bottom: 4px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
+        #messages li.my b { color: #e0f7ea; }
 
-        .audio-container { width: 240px; margin-top: 5px; }
-        audio { width: 100%; height: 40px; display: block; }
+        /* Медиа внутри сообщений */
+        audio { 
+            width: 100%; 
+            min-width: 240px; /* Жесткий размер плеера, чтобы не сжимался */
+            height: 40px; 
+            margin-top: 8px;
+            display: block;
+        }
+        img { max-width: 100%; border-radius: 12px; margin-top: 8px; display: block; }
 
-        /* ИСПРАВЛЕННАЯ ПАНЕЛЬ ВВОДА */
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 3. ПАНЕЛЬ ВВОДА (Снизу, не сжимается) */
         .controls { 
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 70px;
-            background: white; 
+            flex: 0 0 auto;
             display: flex; 
-            padding: 10px;
+            padding: 10px 15px; 
+            background: #ffffff; 
             gap: 10px; 
             align-items: center; 
-            z-index: 9999;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-            /* Учитываем "челку" снизу на iPhone */
-            padding-bottom: env(safe-area-inset-bottom);
+            border-top: 1px solid rgba(0,0,0,0.1);
+            z-index: 10;
+            /* Отступ для полоски "Домой" на новых iPhone */
+            padding-bottom: calc(10px + env(safe-area-inset-bottom)); 
         }
 
         input#i { 
-            flex: 1; 
-            padding: 12px 15px; 
-            border: 1px solid #ddd; 
+            flex: 1 1 auto; 
+            padding: 12px 18px; 
+            border: 1px solid #e0e0e0; 
             border-radius: 25px; 
             outline: none; 
             font-size: 16px; 
-            background: #f0f0f0;
+            background: #f9f9f9;
+        }
+        input#i:focus { border-color: #25d366; }
+
+        .btn { flex: 0 0 auto; background: none; border: none; font-size: 26px; cursor: pointer; color: #555; display: flex; align-items: center; }
+        
+        .send-btn { 
+            flex: 0 0 auto;
+            background: #25d366; 
+            color: white; 
+            border-radius: 50%; 
+            width: 44px; height: 44px; 
+            border: none; font-size: 18px; 
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
         }
 
-        .btn { background: none; border: none; font-size: 24px; cursor: pointer; }
-        .send-btn { 
-            background: #25d366; color: white; border-radius: 50%; 
-            width: 44px; height: 44px; border: none; font-size: 18px; 
-            display: flex; align-items: center; justify-content: center;
-        }
-        
-        img { max-width: 100%; border-radius: 10px; }
-        .rec-active { color: red; }
+        .rec-active { color: #ff4757; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>Cloud Chat</h1>
+        <h1>Секретный Чат</h1>
         <div id="typing-status">печатает...</div>
     </div>
 
@@ -112,13 +142,13 @@
         <input type="file" id="fi" style="display:none" accept="image/*">
         <button type="button" class="btn" onclick="document.getElementById('fi').click()">🖼️</button>
         <button type="button" id="rec-btn" class="btn">🎤</button>
-        <input id="i" autocomplete="off" placeholder="Сообщение..." onfocus="scrollToEnd()">
+        <input id="i" autocomplete="off" placeholder="Сообщение...">
         <button type="submit" class="send-btn">➤</button>
     </form>
 
     <script>
         const socket = io();
-        let myName = localStorage.getItem('user') || prompt("Ник:") || "Аноним";
+        let myName = localStorage.getItem('user') || prompt("Ваше имя:") || "Аноним";
         localStorage.setItem('user', myName);
 
         const msgList = document.getElementById('messages');
@@ -126,83 +156,123 @@
         const typingStatus = document.getElementById('typing-status');
         const bell = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
 
-        function scrollToEnd() {
-            setTimeout(() => {
-                msgList.scrollTop = msgList.scrollHeight;
-            }, 300);
+        // Умная прокрутка вниз
+        function scrollToBottom() {
+            msgList.scrollTo({
+                top: msgList.scrollHeight,
+                behavior: 'smooth'
+            });
         }
 
-        // Typing
+        // --- КТО ПЕЧАТАЕТ ---
+        let tTimer;
         input.addEventListener('input', () => {
             socket.emit('typing', myName);
-            clearTimeout(window.tTimer);
-            window.tTimer = setTimeout(() => socket.emit('stop typing'), 2000);
+            clearTimeout(tTimer);
+            tTimer = setTimeout(() => socket.emit('stop typing'), 2000);
         });
-        socket.on('user typing', (u) => { typingStatus.innerText = u + ' печатает...'; typingStatus.style.opacity = '1'; });
-        socket.on('user stop typing', () => { typingStatus.style.opacity = '0'; });
 
-        // Messages
+        socket.on('user typing', (uName) => {
+            typingStatus.innerText = uName + ' печатает...';
+            typingStatus.style.opacity = '1';
+        });
+
+        socket.on('user stop typing', () => {
+            typingStatus.style.opacity = '0';
+        });
+
+        // --- ПОЛУЧЕНИЕ СООБЩЕНИЙ ---
         socket.on('chat message', d => {
             const li = document.createElement('li');
-            if (d.user === myName) li.className = 'my';
-            else bell.play().catch(()=>{});
-
-            let html = `<b>${d.user}</b><br>${d.text || ''}`;
-            if (d.file) {
-                if (d.type === 'image') html += `<br><img src="${d.file}">`;
-                if (d.type === 'audio') html += `<div class="audio-container"><audio controls src="${d.file}"></audio></div>`;
+            
+            if (d.user === myName) {
+                li.className = 'my';
+            } else {
+                bell.play().catch(() => console.log("Кликните по экрану для звука"));
             }
-            li.innerHTML = html;
+
+            let content = `<b>${d.user}</b>${d.text || ''}`;
+            
+            if (d.file) {
+                if (d.type === 'image') {
+                    // Ждем, пока картинка загрузится, чтобы правильно прокрутить чат
+                    content += `<br><img src="${d.file}" onload="scrollToBottom()">`;
+                }
+                if (d.type === 'audio') {
+                    content += `<br><audio controls src="${d.file}"></audio>`;
+                }
+            }
+            
+            li.innerHTML = content;
             msgList.appendChild(li);
-            scrollToEnd();
+            
+            scrollToBottom();
+            typingStatus.style.opacity = '0';
         });
 
+        // --- ОТПРАВКА ---
         document.getElementById('f').onsubmit = (e) => {
             e.preventDefault();
             if (input.value.trim()) {
                 socket.emit('chat message', { user: myName, text: input.value });
                 input.value = '';
-                scrollToEnd();
+                socket.emit('stop typing');
+                input.focus(); // Оставляем фокус на поле после отправки
             }
-            socket.emit('stop typing');
         };
 
-        // Файлы
+        // --- ФАЙЛЫ ---
         document.getElementById('fi').onchange = function() {
             const file = this.files[0];
             if (file) {
                 const r = new FileReader();
                 r.readAsDataURL(file);
-                r.onload = () => socket.emit('chat message', { user: myName, file: r.result, type: 'image' });
+                r.onload = () => {
+                    socket.emit('chat message', { user: myName, file: r.result, type: 'image' });
+                    this.value = ''; // Очищаем инпут
+                };
             }
         };
 
-        // ГС
+        // --- ГОЛОСОВЫЕ ---
         let rec;
         let chunks = [];
-        document.getElementById('rec-btn').onclick = async () => {
+        const recBtn = document.getElementById('rec-btn');
+
+        recBtn.onclick = async () => {
             if (!rec || rec.state === "inactive") {
-                const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-                rec = new MediaRecorder(s);
-                chunks = [];
-                rec.ondataavailable = e => chunks.push(e.data);
-                rec.onstop = () => {
-                    const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
-                    const reader = new FileReader();
-                    reader.readAsDataURL(blob);
-                    reader.onloadend = () => socket.emit('chat message', { user: myName, file: reader.result, type: 'audio' });
-                    s.getTracks().forEach(t => t.stop());
-                };
-                rec.start();
-                document.getElementById('rec-btn').classList.add('rec-active');
+                try {
+                    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    rec = new MediaRecorder(s);
+                    chunks = [];
+                    rec.ondataavailable = e => chunks.push(e.data);
+                    rec.onstop = () => {
+                        const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(blob);
+                        reader.onloadend = () => socket.emit('chat message', { user: myName, file: reader.result, type: 'audio' });
+                        s.getTracks().forEach(t => t.stop());
+                    };
+                    rec.start();
+                    recBtn.classList.add('rec-active');
+                } catch(e) { 
+                    alert("Разрешите доступ к микрофону!"); 
+                }
             } else {
                 rec.stop();
-                document.getElementById('rec-btn').classList.remove('rec-active');
+                recBtn.classList.remove('rec-active');
             }
         };
 
-        // Фикс для клавиатуры (когда она открывается, прокручиваем вниз)
-        window.addEventListener('resize', scrollToEnd);
+        // --- ФИКС КЛАВИАТУРЫ ---
+        // Когда выезжает клавиатура, окно меняет размер, и мы должны прокрутить чат вниз
+        window.addEventListener('resize', () => {
+            setTimeout(scrollToBottom, 100);
+        });
+        // Дополнительный фикс для iOS
+        input.addEventListener('focus', () => {
+            setTimeout(scrollToBottom, 300);
+        });
     </script>
 </body>
 </html>
