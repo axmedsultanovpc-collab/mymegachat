@@ -1,71 +1,53 @@
 ﻿<!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Чат</title>
+    <title>Мой Быстрый Чат</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body { font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background: #eee; }
-        #messages { list-style: none; padding: 20px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        #messages li { padding: 10px; border-radius: 10px; background: white; max-width: 80%; box-shadow: 0 1px 2px #ccc; }
-        #messages li.my { background: #dcf8c6; align-self: flex-end; }
-        form { display: flex; padding: 10px; background: #fff; gap: 5px; }
-        input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        button { padding: 10px; cursor: pointer; background: #25d366; color: white; border: none; border-radius: 5px; }
-        .clip { background: #f0f0f0; color: #000; font-size: 20px; }
-        img { max-width: 200px; display: block; margin-top: 5px; border-radius: 5px; }
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 90vh; }
+        #messages { list-style: none; margin: 0; padding: 15px; flex-grow: 1; overflow-y: auto; background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        #messages li { padding: 8px 12px; margin-bottom: 8px; border-radius: 8px; background: #e4e6eb; width: fit-content; max-width: 80%; }
+        form { display: flex; margin-top: 15px; gap: 10px; }
+        input { padding: 12px; border: 1px solid #ccc; border-radius: 5px; flex-grow: 1; outline: none; }
+        button { padding: 10px 20px; background: #0084ff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0073e6; }
     </style>
 </head>
 <body>
+
     <ul id="messages"></ul>
-    <form id="f">
-        <input type="file" id="fi" style="display:none" accept="image/*,audio/*">
-        <button type="button" class="clip" onclick="document.getElementById('fi').click()">📎</button>
-        <input id="i" placeholder="Сообщение...">
+    
+    <form id="form">
+        <input id="input" autocomplete="off" placeholder="Введите сообщение..." />
         <button>Отправить</button>
     </form>
+
     <script>
         const socket = io();
-        const f = document.getElementById('f');
-        const i = document.getElementById('i');
-        const fi = document.getElementById('fi');
-        const m = document.getElementById('messages');
-        const name = localStorage.getItem('chatName') || prompt('Имя:');
-        localStorage.setItem('chatName', name);
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const messages = document.getElementById('messages');
 
-        function show(data) {
-            const li = document.createElement('li');
-            if (data.user === name) li.className = 'my';
-            li.innerHTML = `<b>${data.user}</b><br>${data.text || ''}`;
-            if (data.fileUrl) {
-                if (data.fileUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-                    li.innerHTML += `<br><img src="${data.fileUrl}">`;
-                } else {
-                    li.innerHTML += `<br><audio controls src="${data.fileUrl}"></audio>`;
-                }
-            }
-            m.appendChild(li);
-            m.scrollTop = m.scrollHeight;
-        }
+        // Спрашиваем имя при входе
+        let myName = prompt('Как вас зовут?') || 'Аноним';
 
-        socket.on('chat history', h => { m.innerHTML = ''; h.forEach(show); });
-        socket.on('chat message', d => show(d));
-
-        f.onsubmit = (e) => {
+        // Отправка сообщения
+        form.onsubmit = (e) => {
             e.preventDefault();
-            const file = fi.files[0];
-            if (file) {
-                const r = new FileReader();
-                r.readAsDataURL(file);
-                r.onload = () => {
-                    socket.emit('chat message', { user: name, text: i.value, file: r.result });
-                    fi.value = '';
-                };
-            } else if (i.value) {
-                socket.emit('chat message', { user: name, text: i.value });
+            if (input.value) {
+                socket.emit('chat message', { user: myName, text: input.value });
+                input.value = '';
             }
-            i.value = '';
         };
+
+        // Получение сообщения
+        socket.on('chat message', (data) => {
+            const item = document.createElement('li');
+            item.innerHTML = `<b>${data.user}</b>: ${data.text}`;
+            messages.appendChild(item);
+            messages.scrollTop = messages.scrollHeight; // Автопрокрутка вниз
+        });
     </script>
 </body>
 </html>
