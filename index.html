@@ -3,18 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MegaChat Pro</title>
+    <title>MegaChat Live</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 90vh; }
-        #messages { list-style-type: none; margin: 0; padding: 0; flex-grow: 1; overflow-y: auto; background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        #messages li { padding: 8px 12px; margin-bottom: 8px; border-radius: 8px; background: #e4e6eb; max-width: 70%; align-self: flex-start; word-wrap: break-word; }
-        #messages li.my-msg { background: #0084ff; color: white; align-self: flex-end; margin-left: auto; }
-        form { display: flex; margin-top: 15px; gap: 10px; }
-        input { padding: 10px; border: 1px solid #ccc; border-radius: 5px; flex-grow: 1; }
-        button { padding: 10px 20px; background: #0084ff; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        img { max-width: 100%; border-radius: 8px; margin-top: 5px; cursor: pointer; }
-        audio { margin-top: 5px; width: 100%; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #e5ddd5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        #messages { list-style-type: none; margin: 0; padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        #messages li { padding: 10px 15px; border-radius: 15px; background: white; max-width: 75%; box-shadow: 0 1px 2px rgba(0,0,0,0.1); position: relative; }
+        #messages li.my-msg { background: #dcf8c6; align-self: flex-end; }
+        form { display: flex; padding: 10px; background: #f0f0f0; gap: 10px; align-items: center; }
+        input#input { padding: 12px; border: none; border-radius: 20px; flex-grow: 1; outline: none; }
+        button { background: #25d366; color: white; border: none; border-radius: 50%; width: 45px; height: 45px; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+        .file-btn { background: none; color: #555; font-size: 24px; width: auto; height: auto; }
+        img { max-width: 100%; border-radius: 10px; margin-top: 5px; }
+        audio { margin-top: 5px; width: 100%; height: 35px; }
+        b { color: #075e54; font-size: 0.9em; display: block; margin-bottom: 3px; }
     </style>
 </head>
 <body>
@@ -22,31 +24,30 @@
     <ul id="messages"></ul>
     
     <form id="form">
-        <input id="input" autocomplete="off" placeholder="Введите сообщение..." />
         <input type="file" id="fileInput" style="display:none" accept="image/*,audio/*">
-        <button type="button" onclick="document.getElementById('fileInput').click()">📎</button>
-        <button>Отправить</button>
+        <button type="button" class="file-btn" onclick="document.getElementById('fileInput').click()">📎</button>
+        <input id="input" autocomplete="off" placeholder="Введите сообщение..." />
+        <button type="submit">➤</button>
     </form>
 
     <script>
+        // Подключаемся к серверу (он сам определит адрес)
         const socket = io();
         const form = document.getElementById('form');
         const input = document.getElementById('input');
         const fileInput = document.getElementById('fileInput');
         const messages = document.getElementById('messages');
 
-        let myName = localStorage.getItem('chatName') || prompt('Ваше имя:');
-        if (!myName) myName = 'Аноним';
+        let myName = localStorage.getItem('chatName') || prompt('Введите ваш ник:');
+        if (!myName) myName = 'Пользователь';
         localStorage.setItem('chatName', myName);
 
-        // Функция добавления сообщения на экран
         function addMsg(data) {
             const item = document.createElement('li');
             if (data.user === myName) item.classList.add('my-msg');
             
-            let content = `<b>${data.user}</b>: ${data.text || ''}`;
+            let content = `<b>${data.user}</b>${data.text || ''}`;
             
-            // Если в данных есть ссылка на файл из облака (Cloudinary)
             if (data.fileUrl) {
                 const url = data.fileUrl;
                 if (url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
@@ -61,18 +62,17 @@
             messages.scrollTop = messages.scrollHeight;
         }
 
-        // Загрузка истории из базы данных
+        // Загрузка истории
         socket.on('chat history', (history) => {
             messages.innerHTML = '';
             history.forEach(addMsg);
         });
 
-        // Получение нового сообщения
+        // Новое сообщение
         socket.on('chat message', (data) => {
             addMsg(data);
         });
 
-        // Отправка сообщения
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             const file = fileInput.files[0];
