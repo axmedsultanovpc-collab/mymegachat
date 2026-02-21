@@ -3,50 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MegaChat Fixed</title>
+    <title>Cloud Chat</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        * { box-sizing: border-box; }
-        body { font-family: sans-serif; margin: 0; background: #e5ddd5; height: 100vh; display: flex; flex-direction: column; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         
-        #messages { 
-            list-style: none; padding: 10px; margin: 0; flex: 1; overflow-y: auto; 
-            display: flex; flex-direction: column; gap: 8px; padding-bottom: 80px; /* Отступ под панель */
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, sans-serif; 
+            /* Красивый градиент на фон */
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden;
         }
-        
-        #messages li { padding: 10px; border-radius: 10px; background: white; max-width: 85%; font-size: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        #messages li.my { background: #dcf8c6; align-self: flex-end; }
 
-        .controls { 
-            display: flex; padding: 10px; background: #f0f0f0; gap: 8px; align-items: center; 
-            border-top: 1px solid #ccc; position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
+        /* Шапка чата */
+        .header {
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: white;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            z-index: 1001;
+        }
+        .header h1 { font-size: 18px; font-weight: 500; }
+        .status-dot { width: 8px; height: 8px; background: #2ecc71; border-radius: 50%; margin-right: 10px; box-shadow: 0 0 10px #2ecc71; }
+
+        /* Список сообщений */
+        #messages { 
+            list-style: none; 
+            padding: 20px; 
+            flex: 1; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+            padding-bottom: 90px;
+        }
+
+        /* Стиль "Стеклянных" сообщений */
+        #messages li { 
+            padding: 12px 16px; 
+            border-radius: 18px; 
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            max-width: 80%; 
+            font-size: 15px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            position: relative;
+            animation: fadeIn 0.3s ease; /* Плавное появление */
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #messages li.my { 
+            background: #25d366; 
+            color: white;
+            align-self: flex-end; 
+            border-bottom-right-radius: 4px;
         }
         
-        input#i { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 16px; background: white; }
-        .btn { background: none; border: none; font-size: 24px; cursor: pointer; display: flex; align-items: center; }
-        .send { background: #25d366; color: white; border-radius: 50%; width: 45px; height: 45px; border: none; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+        #messages li b { display: block; font-size: 11px; margin-bottom: 4px; opacity: 0.7; text-transform: uppercase; }
+
+        /* Нижняя панель */
+        .controls { 
+            display: flex; 
+            padding: 15px; 
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            gap: 10px; 
+            align-items: center; 
+            position: fixed; 
+            bottom: 0; left: 0; right: 0; 
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            z-index: 1000;
+        }
+
+        input#i { 
+            flex: 1; 
+            padding: 12px 20px; 
+            border: none; 
+            border-radius: 25px; 
+            outline: none; 
+            font-size: 16px; 
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .btn { background: none; border: none; font-size: 24px; cursor: pointer; color: white; transition: 0.2s; }
+        .btn:hover { transform: scale(1.1); }
         
-        img { max-width: 100%; border-radius: 8px; }
+        .send { 
+            background: #fff; 
+            color: #764ba2; 
+            border-radius: 50%; 
+            width: 45px; height: 45px; 
+            border: none; font-size: 20px; 
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        img { max-width: 100%; border-radius: 12px; margin-top: 8px; }
+        audio { height: 35px; margin-top: 8px; filter: invert(100%) brightness(2); }
+        .recording { color: #ff4757; text-shadow: 0 0 10px #ff4757; }
     </style>
 </head>
 <body>
+
+    <div class="header">
+        <div class="status-dot"></div>
+        <h1>Наш Секретный Чат</h1>
+    </div>
+
     <ul id="messages"></ul>
+
     <form id="f" class="controls">
         <input type="file" id="fi" style="display:none" accept="image/*">
         <button type="button" class="btn" onclick="document.getElementById('fi').click()">🖼️</button>
         <button type="button" id="rec-btn" class="btn">🎤</button>
-        <input id="i" autocomplete="off" placeholder="Сообщение...">
+        <input id="i" autocomplete="off" placeholder="Напишите сообщение...">
         <button type="submit" class="send">➤</button>
     </form>
 
     <script>
         const socket = io();
-        let name = localStorage.getItem('user') || prompt("Ваше имя:") || "Аноним";
+        let name = localStorage.getItem('user') || prompt("Введите ваш никнейм:") || "Аноним";
         localStorage.setItem('user', name);
 
         const notificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
 
-        // Отправка и получение (код без изменений)
+        // Логика ГС, файлов и сообщений остается прежней (она у нас идеальная)
         document.getElementById('f').onsubmit = (e) => {
             e.preventDefault();
             const i = document.getElementById('i');
@@ -66,18 +159,51 @@
 
         socket.on('chat message', d => {
             const li = document.createElement('li');
-            if (d.user === name) { li.className = 'my'; } 
-            else { notificationSound.play().catch(() => {}); }
-            let html = `<b>${d.user}</b><br>${d.text || ''}`;
+            if (d.user === name) {
+                li.className = 'my';
+            } else {
+                notificationSound.play().catch(() => {});
+            }
+            
+            let html = `<b>${d.user}</b>${d.text || ''}`;
             if (d.file) {
                 if (d.type === 'image') html += `<br><img src="${d.file}">`;
                 if (d.type === 'audio') html += `<br><audio controls src="${d.file}"></audio>`;
             }
             li.innerHTML = html;
             document.getElementById('messages').appendChild(li);
-            window.scrollTo(0, document.body.scrollHeight);
-            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+            
+            // Плавная прокрутка
+            document.getElementById('messages').scrollTo({
+                top: document.getElementById('messages').scrollHeight,
+                behavior: 'smooth'
+            });
         });
+
+        // Логика записи ГС
+        let mediaRecorder;
+        let chunks = [];
+        const recBtn = document.getElementById('rec-btn');
+        recBtn.onclick = async () => {
+            if (!mediaRecorder || mediaRecorder.state === "inactive") {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                chunks = [];
+                mediaRecorder.ondataavailable = e => chunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+                    const r = new FileReader();
+                    r.readAsDataURL(blob);
+                    r.onloadend = () => socket.emit('chat message', { user: name, file: r.result, type: 'audio' });
+                    stream.getTracks().forEach(t => t.stop());
+                };
+                mediaRecorder.start();
+                recBtn.classList.add('recording');
+            } else {
+                mediaRecorder.stop();
+                recBtn.classList.remove('recording');
+            }
+        };
     </script>
 </body>
 </html>
