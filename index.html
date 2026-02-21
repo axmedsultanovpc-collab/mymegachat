@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MegaChat Final</title>
+    <title>MegaChat Fixed</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -14,23 +14,20 @@
             height: 100vh; 
             display: flex; 
             flex-direction: column; 
+            overflow: hidden;
         }
 
-        /* Шапка */
         .header {
-            padding: 10px 20px;
+            padding: 12px 20px;
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(10px);
             color: white;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            position: sticky;
-            top: 0;
             z-index: 1001;
         }
-        .header h1 { font-size: 18px; }
-        #typing-status { font-size: 13px; color: #adff2f; height: 15px; font-style: italic; opacity: 0; transition: 0.3s; }
 
-        /* Область сообщений */
+        #typing-status { font-size: 13px; color: #adff2f; height: 16px; opacity: 0; transition: 0.3s; }
+
         #messages { 
             list-style: none; 
             padding: 15px; 
@@ -38,66 +35,78 @@
             overflow-y: auto; 
             display: flex; 
             flex-direction: column; 
-            gap: 10px;
-            /* ВАЖНО: огромный отступ снизу, чтобы панель не закрывала текст */
-            padding-bottom: 100px; 
+            gap: 12px;
+            padding-bottom: 110px; 
         }
 
+        /* ИСПРАВЛЕННЫЙ БЛОК СООБЩЕНИЯ */
         #messages li { 
-            padding: 10px 15px; 
-            border-radius: 15px; 
+            padding: 12px 16px; 
+            border-radius: 18px; 
             background: rgba(255, 255, 255, 0.95);
             color: #333;
             max-width: 85%; 
+            width: auto; /* Позволяет блоку расти */
+            min-width: 100px;
             font-size: 16px; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             word-wrap: break-word;
+            animation: fadeIn 0.3s ease;
         }
 
         #messages li.my { 
             background: #25d366; 
             color: white;
             align-self: flex-end; 
-            border-bottom-right-radius: 2px;
+            border-bottom-right-radius: 4px;
         }
-        
-        #messages li b { display: block; font-size: 12px; margin-bottom: 3px; opacity: 0.8; }
 
-        /* Панель управления */
+        /* ИСПРАВЛЕННЫЙ ПЛЕЕР */
+        .audio-container {
+            width: 260px; /* Жесткая ширина для голосового, чтобы не сжималось в круг */
+            margin-top: 5px;
+        }
+
+        audio { 
+            width: 100%; 
+            height: 40px; 
+            display: block;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
         .controls { 
             display: flex; 
-            padding: 10px; 
-            background: #f0f0f0; 
+            padding: 15px; 
+            background: #ffffff; 
             gap: 10px; 
             align-items: center; 
             position: fixed; 
             bottom: 0; left: 0; right: 0; 
             z-index: 1000;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
         }
 
         input#i { 
             flex: 1; 
-            padding: 12px 15px; 
-            border: 1px solid #ccc; 
+            padding: 12px 20px; 
+            border: 1px solid #ddd; 
             border-radius: 25px; 
             outline: none; 
             font-size: 16px; 
         }
 
-        .btn { background: none; border: none; font-size: 26px; cursor: pointer; display: flex; align-items: center; }
+        .btn { background: none; border: none; font-size: 26px; cursor: pointer; color: #555; }
         
         .send-btn { 
-            background: #25d366; 
-            color: white; 
-            border-radius: 50%; 
-            width: 45px; height: 45px; 
-            border: none; font-size: 20px; 
-            display: flex; align-items: center; justify-content: center;
+            background: #25d366; color: white; border-radius: 50%; 
+            width: 46px; height: 46px; border: none; font-size: 20px; 
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
 
-        img { max-width: 100%; border-radius: 10px; margin-top: 5px; display: block; }
-        audio { width: 100%; height: 40px; margin-top: 5px; }
+        img { max-width: 100%; border-radius: 12px; margin-top: 5px; }
+        .rec-active { color: #ff4757; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
@@ -119,74 +128,59 @@
 
     <script>
         const socket = io();
-        let name = localStorage.getItem('user') || prompt("Твой ник:") || "Аноним";
-        localStorage.setItem('user', name);
+        let myName = localStorage.getItem('user') || prompt("Ник:") || "Аноним";
+        localStorage.setItem('user', myName);
 
         const msgList = document.getElementById('messages');
         const typingStatus = document.getElementById('typing-status');
         const input = document.getElementById('i');
-        
-        // ЗВУК (используем надежную ссылку)
         const bell = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
 
-        // --- ЛОГИКА ПЕЧАТАЕТ ---
-        let tTimer;
+        // Typing
         input.addEventListener('input', () => {
-            socket.emit('typing', name);
-            clearTimeout(tTimer);
-            tTimer = setTimeout(() => socket.emit('stop typing'), 2000);
+            socket.emit('typing', myName);
+            clearTimeout(window.tTimer);
+            window.tTimer = setTimeout(() => socket.emit('stop typing'), 2000);
         });
+        socket.on('user typing', (u) => { typingStatus.innerText = u + ' печатает...'; typingStatus.style.opacity = '1'; });
+        socket.on('user stop typing', () => { typingStatus.style.opacity = '0'; });
 
-        socket.on('user typing', (uName) => {
-            typingStatus.innerText = uName + ' печатает...';
-            typingStatus.style.opacity = '1';
-        });
-
-        socket.on('user stop typing', () => {
-            typingStatus.style.opacity = '0';
-        });
-
-        // --- ПОЛУЧЕНИЕ СООБЩЕНИЙ ---
+        // Messages
         socket.on('chat message', d => {
             const li = document.createElement('li');
-            if (d.user === name) {
-                li.className = 'my';
-            } else {
-                bell.play().catch(() => {}); // Звук для чужих сообщений
-            }
+            if (d.user === myName) li.className = 'my';
+            else bell.play().catch(()=>{});
 
-            let content = `<b>${d.user}</b>${d.text || ''}`;
+            let html = `<b>${d.user}</b><br>${d.text || ''}`;
+            
             if (d.file) {
-                if (d.type === 'image') content += `<br><img src="${d.file}">`;
-                if (d.type === 'audio') content += `<br><audio controls src="${d.file}"></audio>`;
+                if (d.type === 'image') html += `<br><img src="${d.file}">`;
+                // ОБОРАЧИВАЕМ АУДИО В КОНТЕЙНЕР С ФИКСИРОВАННОЙ ШИРИНОЙ
+                if (d.type === 'audio') html += `<div class="audio-container"><audio controls src="${d.file}"></audio></div>`;
             }
-            li.innerHTML = content;
+            
+            li.innerHTML = html;
             msgList.appendChild(li);
-
-            // АВТО-ПРОКРУТКА ВНИЗ
             msgList.scrollTo({ top: msgList.scrollHeight, behavior: 'smooth' });
         });
 
-        // --- ОТПРАВКА ---
         document.getElementById('f').onsubmit = (e) => {
             e.preventDefault();
-            const file = document.getElementById('fi').files[0];
-            if (file) {
-                const r = new FileReader();
-                r.readAsDataURL(file);
-                r.onload = () => {
-                    socket.emit('chat message', { user: name, text: input.value, file: r.result, type: 'image' });
-                    document.getElementById('fi').value = '';
-                    input.value = '';
-                };
-            } else if (input.value.trim()) {
-                socket.emit('chat message', { user: name, text: input.value });
-                input.value = '';
-            }
+            if (input.value.trim()) { socket.emit('chat message', { user: myName, text: input.value }); input.value = ''; }
             socket.emit('stop typing');
         };
 
-        // --- ГОЛОСОВЫЕ ---
+        // Картинки
+        document.getElementById('fi').onchange = function() {
+            const file = this.files[0];
+            if (file) {
+                const r = new FileReader();
+                r.readAsDataURL(file);
+                r.onload = () => { socket.emit('chat message', { user: myName, file: r.result, type: 'image' }); };
+            }
+        };
+
+        // ГС
         let rec;
         let chunks = [];
         document.getElementById('rec-btn').onclick = async () => {
@@ -199,14 +193,14 @@
                     const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
                     const reader = new FileReader();
                     reader.readAsDataURL(blob);
-                    reader.onloadend = () => socket.emit('chat message', { user: name, file: reader.result, type: 'audio' });
+                    reader.onloadend = () => socket.emit('chat message', { user: myName, file: reader.result, type: 'audio' });
                     s.getTracks().forEach(t => t.stop());
                 };
                 rec.start();
-                document.getElementById('rec-btn').style.filter = "drop-shadow(0 0 5px red)";
+                document.getElementById('rec-btn').classList.add('rec-active');
             } else {
                 rec.stop();
-                document.getElementById('rec-btn').style.filter = "none";
+                document.getElementById('rec-btn').classList.remove('rec-active');
             }
         };
     </script>
