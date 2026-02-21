@@ -3,18 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MegaChat Sound</title>
+    <title>MegaChat Fixed</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { font-family: sans-serif; margin: 0; background: #e5ddd5; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        #messages { list-style: none; padding: 10px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        body { font-family: sans-serif; margin: 0; background: #e5ddd5; height: 100vh; display: flex; flex-direction: column; }
+        
+        #messages { 
+            list-style: none; padding: 10px; margin: 0; flex: 1; overflow-y: auto; 
+            display: flex; flex-direction: column; gap: 8px; padding-bottom: 80px; /* Отступ под панель */
+        }
+        
         #messages li { padding: 10px; border-radius: 10px; background: white; max-width: 85%; font-size: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         #messages li.my { background: #dcf8c6; align-self: flex-end; }
-        .controls { display: flex; padding: 10px; background: #f0f0f0; gap: 8px; align-items: center; border-top: 1px solid #ccc; }
-        input#i { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 16px; }
-        .btn { background: none; border: none; font-size: 24px; cursor: pointer; }
-        .send { background: #25d366; color: white; border-radius: 50%; width: 45px; height: 45px; border: none; font-size: 20px; cursor: pointer; }
+
+        .controls { 
+            display: flex; padding: 10px; background: #f0f0f0; gap: 8px; align-items: center; 
+            border-top: 1px solid #ccc; position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
+        }
+        
+        input#i { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 16px; background: white; }
+        .btn { background: none; border: none; font-size: 24px; cursor: pointer; display: flex; align-items: center; }
+        .send { background: #25d366; color: white; border-radius: 50%; width: 45px; height: 45px; border: none; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+        
         img { max-width: 100%; border-radius: 8px; }
     </style>
 </head>
@@ -33,51 +44,13 @@
         let name = localStorage.getItem('user') || prompt("Ваше имя:") || "Аноним";
         localStorage.setItem('user', name);
 
-        // --- ЗВУКОВОЕ УВЕДОМЛЕНИЕ ---
-        // Используем стандартный звук уведомления
         const notificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
 
-        function playSound() {
-            notificationSound.play().catch(e => {
-                console.log("Звук заблокирован. Нужно кликнуть по странице один раз.");
-            });
-        }
-
-        // --- ГОЛОСОВЫЕ ---
-        let mediaRecorder;
-        let audioChunks = [];
-        const recBtn = document.getElementById('rec-btn');
-        recBtn.onclick = async () => {
-            if (!mediaRecorder || mediaRecorder.state === "inactive") {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    audioChunks = [];
-                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-                    mediaRecorder.onstop = () => {
-                        const blob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
-                        const reader = new FileReader();
-                        reader.readAsDataURL(blob);
-                        reader.onloadend = () => {
-                            socket.emit('chat message', { user: name, file: reader.result, type: 'audio' });
-                        };
-                        stream.getTracks().forEach(t => t.stop());
-                    };
-                    mediaRecorder.start();
-                    recBtn.style.color = "red";
-                } catch(e) { alert("Микрофон недоступен"); }
-            } else {
-                mediaRecorder.stop();
-                recBtn.style.color = "black";
-            }
-        };
-
-        // --- ОТПРАВКА ---
+        // Отправка и получение (код без изменений)
         document.getElementById('f').onsubmit = (e) => {
             e.preventDefault();
             const i = document.getElementById('i');
             const fileInput = document.getElementById('fi');
-            
             if (fileInput.files[0]) {
                 const r = new FileReader();
                 r.readAsDataURL(fileInput.files[0]);
@@ -91,16 +64,10 @@
             i.value = '';
         };
 
-        // --- ПОЛУЧЕНИЕ ---
         socket.on('chat message', d => {
             const li = document.createElement('li');
-            if (d.user === name) {
-                li.className = 'my';
-            } else {
-                // Если сообщение от другого человека — ИГРАЕМ ЗВУК
-                playSound();
-            }
-
+            if (d.user === name) { li.className = 'my'; } 
+            else { notificationSound.play().catch(() => {}); }
             let html = `<b>${d.user}</b><br>${d.text || ''}`;
             if (d.file) {
                 if (d.type === 'image') html += `<br><img src="${d.file}">`;
@@ -108,6 +75,7 @@
             }
             li.innerHTML = html;
             document.getElementById('messages').appendChild(li);
+            window.scrollTo(0, document.body.scrollHeight);
             document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         });
     </script>
