@@ -3,123 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cloud Chat</title>
+    <title>Cloud Chat + Typing</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        .header { padding: 15px 20px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); color: white; border-bottom: 1px solid rgba(255, 255, 255, 0.2); z-index: 1001; }
+        .status-info { display: flex; flex-direction: column; }
+        .status-row { display: flex; align-items: center; }
+        .status-dot { width: 8px; height: 8px; background: #2ecc71; border-radius: 50%; margin-right: 8px; box-shadow: 0 0 10px #2ecc71; }
         
-        body { 
-            font-family: 'Segoe UI', Roboto, Helvetica, sans-serif; 
-            /* Красивый градиент на фон */
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            height: 100vh; 
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden;
-        }
+        /* Стиль надписи "печатает" */
+        #typing-indicator { font-size: 12px; color: #dcf8c6; margin-top: 4px; height: 14px; opacity: 0; transition: 0.3s; }
 
-        /* Шапка чата */
-        .header {
-            padding: 15px 20px;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            color: white;
-            display: flex;
-            align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            z-index: 1001;
-        }
-        .header h1 { font-size: 18px; font-weight: 500; }
-        .status-dot { width: 8px; height: 8px; background: #2ecc71; border-radius: 50%; margin-right: 10px; box-shadow: 0 0 10px #2ecc71; }
+        #messages { list-style: none; padding: 20px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 90px; }
+        #messages li { padding: 12px 16px; border-radius: 18px; background: rgba(255, 255, 255, 0.9); color: #333; max-width: 80%; font-size: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); animation: fadeIn 0.3s ease; }
+        #messages li.my { background: #25d366; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Список сообщений */
-        #messages { 
-            list-style: none; 
-            padding: 20px; 
-            flex: 1; 
-            overflow-y: auto; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px; 
-            padding-bottom: 90px;
-        }
-
-        /* Стиль "Стеклянных" сообщений */
-        #messages li { 
-            padding: 12px 16px; 
-            border-radius: 18px; 
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
-            max-width: 80%; 
-            font-size: 15px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            position: relative;
-            animation: fadeIn 0.3s ease; /* Плавное появление */
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        #messages li.my { 
-            background: #25d366; 
-            color: white;
-            align-self: flex-end; 
-            border-bottom-right-radius: 4px;
-        }
-        
-        #messages li b { display: block; font-size: 11px; margin-bottom: 4px; opacity: 0.7; text-transform: uppercase; }
-
-        /* Нижняя панель */
-        .controls { 
-            display: flex; 
-            padding: 15px; 
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(15px);
-            gap: 10px; 
-            align-items: center; 
-            position: fixed; 
-            bottom: 0; left: 0; right: 0; 
-            border-top: 1px solid rgba(255, 255, 255, 0.2);
-            z-index: 1000;
-        }
-
-        input#i { 
-            flex: 1; 
-            padding: 12px 20px; 
-            border: none; 
-            border-radius: 25px; 
-            outline: none; 
-            font-size: 16px; 
-            background: rgba(255, 255, 255, 0.9);
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
-        }
-
-        .btn { background: none; border: none; font-size: 24px; cursor: pointer; color: white; transition: 0.2s; }
-        .btn:hover { transform: scale(1.1); }
-        
-        .send { 
-            background: #fff; 
-            color: #764ba2; 
-            border-radius: 50%; 
-            width: 45px; height: 45px; 
-            border: none; font-size: 20px; 
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-
+        .controls { display: flex; padding: 15px; background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(15px); gap: 10px; align-items: center; position: fixed; bottom: 0; left: 0; right: 0; border-top: 1px solid rgba(255, 255, 255, 0.2); z-index: 1000; }
+        input#i { flex: 1; padding: 12px 20px; border: none; border-radius: 25px; outline: none; font-size: 16px; background: white; }
+        .btn { background: none; border: none; font-size: 24px; cursor: pointer; color: white; }
+        .send { background: white; color: #764ba2; border-radius: 50%; width: 45px; height: 45px; border: none; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         img { max-width: 100%; border-radius: 12px; margin-top: 8px; }
-        audio { height: 35px; margin-top: 8px; filter: invert(100%) brightness(2); }
-        .recording { color: #ff4757; text-shadow: 0 0 10px #ff4757; }
+        audio { height: 35px; margin-top: 8px; filter: invert(100%); }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="status-dot"></div>
-        <h1>Наш Секретный Чат</h1>
+        <div class="status-info">
+            <div class="status-row">
+                <div class="status-dot"></div>
+                <h1>Наш Чат</h1>
+            </div>
+            <div id="typing-indicator"></div>
+        </div>
     </div>
 
     <ul id="messages"></ul>
@@ -128,63 +48,65 @@
         <input type="file" id="fi" style="display:none" accept="image/*">
         <button type="button" class="btn" onclick="document.getElementById('fi').click()">🖼️</button>
         <button type="button" id="rec-btn" class="btn">🎤</button>
-        <input id="i" autocomplete="off" placeholder="Напишите сообщение...">
+        <input id="i" autocomplete="off" placeholder="Сообщение...">
         <button type="submit" class="send">➤</button>
     </form>
 
     <script>
         const socket = io();
-        let name = localStorage.getItem('user') || prompt("Введите ваш никнейм:") || "Аноним";
+        let name = localStorage.getItem('user') || prompt("Никнейм:") || "Аноним";
         localStorage.setItem('user', name);
 
-        const notificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const input = document.getElementById('i');
+        let typingTimeout;
 
-        // Логика ГС, файлов и сообщений остается прежней (она у нас идеальная)
-        document.getElementById('f').onsubmit = (e) => {
-            e.preventDefault();
-            const i = document.getElementById('i');
-            const fileInput = document.getElementById('fi');
-            if (fileInput.files[0]) {
-                const r = new FileReader();
-                r.readAsDataURL(fileInput.files[0]);
-                r.onload = () => {
-                    socket.emit('chat message', { user: name, text: i.value, file: r.result, type: 'image' });
-                    fileInput.value = '';
-                };
-            } else if (i.value.trim()) {
-                socket.emit('chat message', { user: name, text: i.value });
-            }
-            i.value = '';
-        };
-
-        socket.on('chat message', d => {
-            const li = document.createElement('li');
-            if (d.user === name) {
-                li.className = 'my';
-            } else {
-                notificationSound.play().catch(() => {});
-            }
-            
-            let html = `<b>${d.user}</b>${d.text || ''}`;
-            if (d.file) {
-                if (d.type === 'image') html += `<br><img src="${d.file}">`;
-                if (d.type === 'audio') html += `<br><audio controls src="${d.file}"></audio>`;
-            }
-            li.innerHTML = html;
-            document.getElementById('messages').appendChild(li);
-            
-            // Плавная прокрутка
-            document.getElementById('messages').scrollTo({
-                top: document.getElementById('messages').scrollHeight,
-                behavior: 'smooth'
-            });
+        // ЛОГИКА "ПЕЧАТАЕТ"
+        input.addEventListener('keypress', () => {
+            socket.emit('typing', name);
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                socket.emit('stop typing');
+            }, 2000);
         });
 
-        // Логика записи ГС
+        socket.on('user typing', (userName) => {
+            typingIndicator.innerText = `${userName} печатает...`;
+            typingIndicator.style.opacity = '1';
+        });
+
+        socket.on('user stop typing', () => {
+            typingIndicator.style.opacity = '0';
+        });
+
+        // ПРИЕМ СООБЩЕНИЙ
+        socket.on('chat message', d => {
+            const li = document.createElement('li');
+            if (d.user === name) li.className = 'my';
+            li.innerHTML = `<b>${d.user}</b><br>${d.text || ''}`;
+            if (d.file) {
+                if (d.type === 'image') li.innerHTML += `<br><img src="${d.file}">`;
+                if (d.type === 'audio') li.innerHTML += `<br><audio controls src="${d.file}"></audio>`;
+            }
+            document.getElementById('messages').appendChild(li);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+            typingIndicator.style.opacity = '0'; // Скрыть статус, если пришло сообщение
+        });
+
+        // Отправка (форма)
+        document.getElementById('f').onsubmit = (e) => {
+            e.preventDefault();
+            if (input.value.trim()) {
+                socket.emit('chat message', { user: name, text: input.value });
+                socket.emit('stop typing');
+                input.value = '';
+            }
+        };
+
+        // Запись ГС
         let mediaRecorder;
         let chunks = [];
-        const recBtn = document.getElementById('rec-btn');
-        recBtn.onclick = async () => {
+        document.getElementById('rec-btn').onclick = async () => {
             if (!mediaRecorder || mediaRecorder.state === "inactive") {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(stream);
@@ -198,10 +120,10 @@
                     stream.getTracks().forEach(t => t.stop());
                 };
                 mediaRecorder.start();
-                recBtn.classList.add('recording');
+                document.getElementById('rec-btn').style.color = "red";
             } else {
                 mediaRecorder.stop();
-                recBtn.classList.remove('recording');
+                document.getElementById('rec-btn').style.color = "white";
             }
         };
     </script>
