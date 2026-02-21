@@ -2,52 +2,76 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cloud Chat</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        /* Сброс базовых отступов */
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        /* Главный контейнер на весь экран */
-        body { 
+        /* Полный сброс всего */
+        html, body { 
+            height: 100%; /* Строго 100% реального окна, никаких vh/dvh */
+            width: 100%;
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; /* Блокируем дергание самого сайта */
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            /* 100dvh - динамическая высота, спасает от мобильной клавиатуры */
-            height: 100dvh; 
-            min-height: 100vh;
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden; /* Скроллить будем только сообщения, а не весь сайт */
         }
 
-        /* 1. ШАПКА (Сверху, не сжимается) */
+        /* 1. ШАПКА - Прибита к верху */
         .header {
-            flex: 0 0 auto;
-            padding: 12px 20px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px; /* ЖЕСТКАЯ ВЫСОТА */
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             color: white;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            z-index: 10;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 0 20px;
         }
-        .header h1 { font-size: 18px; font-weight: 600; }
-        #typing-status { font-size: 13px; color: #adff2f; height: 16px; font-style: italic; opacity: 0; transition: opacity 0.3s; margin-top: 2px; }
+        .header h1 { font-size: 18px; margin: 0; }
+        #typing-status { font-size: 13px; color: #adff2f; font-style: italic; opacity: 0; transition: 0.3s; margin-top: 2px; }
 
-        /* 2. СПИСОК СООБЩЕНИЙ (Посередине, занимает всё свободное место) */
-        #messages { 
-            flex: 1 1 auto; 
-            list-style: none; 
-            padding: 15px; 
-            overflow-y: auto; 
+        /* 2. ПАНЕЛЬ ВВОДА - Прибита к низу */
+        .controls { 
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 70px; /* ЖЕСТКАЯ ВЫСОТА */
+            background: #ffffff; 
             display: flex; 
-            flex-direction: column; 
-            gap: 12px;
-            -webkit-overflow-scrolling: touch; /* Плавный скролл для iOS */
+            align-items: center; 
+            padding: 0 15px; 
+            gap: 10px; 
+            z-index: 100;
+            padding-bottom: env(safe-area-inset-bottom); /* Фикс для айфонов с полоской внизу */
         }
 
-        /* Дизайн сообщений */
+        /* 3. ОКНО ЧАТА - Строго между шапкой и панелью ввода */
+        #messages { 
+            position: absolute;
+            top: 60px; /* Отступ сверху равен высоте шапки */
+            bottom: calc(70px + env(safe-area-inset-bottom)); /* Отступ снизу равен высоте панели ввода */
+            left: 0;
+            right: 0;
+            overflow-y: auto; /* Скроллим только эту часть */
+            -webkit-overflow-scrolling: touch;
+            padding: 15px;
+            margin: 0;
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* --- ДИЗАЙН СООБЩЕНИЙ --- */
         #messages li { 
             padding: 10px 14px; 
             border-radius: 18px; 
@@ -58,51 +82,22 @@
             font-size: 16px; 
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             word-wrap: break-word;
-            animation: slideUp 0.3s ease-out;
         }
-
-        /* Мои сообщения (Зеленые) */
         #messages li.my { 
             background: #25d366; 
             color: white;
             align-self: flex-end; 
             border-bottom-right-radius: 4px;
         }
+        #messages li b { display: block; font-size: 11px; margin-bottom: 4px; opacity: 0.7; }
         
-        #messages li b { display: block; font-size: 11px; margin-bottom: 4px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
-        #messages li.my b { color: #e0f7ea; }
-
-        /* Медиа внутри сообщений */
-        audio { 
-            width: 100%; 
-            min-width: 240px; /* Жесткий размер плеера, чтобы не сжимался */
-            height: 40px; 
-            margin-top: 8px;
-            display: block;
-        }
+        /* Широкие голосовые */
+        audio { width: 100%; min-width: 240px; height: 40px; margin-top: 8px; display: block; }
         img { max-width: 100%; border-radius: 12px; margin-top: 8px; display: block; }
 
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* 3. ПАНЕЛЬ ВВОДА (Снизу, не сжимается) */
-        .controls { 
-            flex: 0 0 auto;
-            display: flex; 
-            padding: 10px 15px; 
-            background: #ffffff; 
-            gap: 10px; 
-            align-items: center; 
-            border-top: 1px solid rgba(0,0,0,0.1);
-            z-index: 10;
-            /* Отступ для полоски "Домой" на новых iPhone */
-            padding-bottom: calc(10px + env(safe-area-inset-bottom)); 
-        }
-
+        /* --- ДИЗАЙН КНОПОК --- */
         input#i { 
-            flex: 1 1 auto; 
+            flex: 1; 
             padding: 12px 18px; 
             border: 1px solid #e0e0e0; 
             border-radius: 25px; 
@@ -110,23 +105,13 @@
             font-size: 16px; 
             background: #f9f9f9;
         }
-        input#i:focus { border-color: #25d366; }
-
-        .btn { flex: 0 0 auto; background: none; border: none; font-size: 26px; cursor: pointer; color: #555; display: flex; align-items: center; }
-        
+        .btn { background: none; border: none; font-size: 26px; cursor: pointer; color: #555; display: flex; align-items: center; }
         .send-btn { 
-            flex: 0 0 auto;
-            background: #25d366; 
-            color: white; 
-            border-radius: 50%; 
-            width: 44px; height: 44px; 
-            border: none; font-size: 18px; 
+            background: #25d366; color: white; border-radius: 50%; 
+            width: 44px; height: 44px; border: none; font-size: 18px; 
             display: flex; align-items: center; justify-content: center;
-            cursor: pointer;
         }
-
-        .rec-active { color: #ff4757; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .rec-active { color: #ff4757; }
     </style>
 </head>
 <body>
@@ -158,49 +143,34 @@
 
         // Умная прокрутка вниз
         function scrollToBottom() {
-            msgList.scrollTo({
-                top: msgList.scrollHeight,
-                behavior: 'smooth'
-            });
+            setTimeout(() => {
+                msgList.scrollTo({ top: msgList.scrollHeight, behavior: 'smooth' });
+            }, 100);
         }
 
-        // --- КТО ПЕЧАТАЕТ ---
+        // Кто печатает
         let tTimer;
         input.addEventListener('input', () => {
             socket.emit('typing', myName);
             clearTimeout(tTimer);
             tTimer = setTimeout(() => socket.emit('stop typing'), 2000);
         });
+        socket.on('user typing', (uName) => { typingStatus.innerText = uName + ' печатает...'; typingStatus.style.opacity = '1'; });
+        socket.on('user stop typing', () => { typingStatus.style.opacity = '0'; });
 
-        socket.on('user typing', (uName) => {
-            typingStatus.innerText = uName + ' печатает...';
-            typingStatus.style.opacity = '1';
-        });
-
-        socket.on('user stop typing', () => {
-            typingStatus.style.opacity = '0';
-        });
-
-        // --- ПОЛУЧЕНИЕ СООБЩЕНИЙ ---
+        // Прием сообщений
         socket.on('chat message', d => {
             const li = document.createElement('li');
-            
             if (d.user === myName) {
                 li.className = 'my';
             } else {
-                bell.play().catch(() => console.log("Кликните по экрану для звука"));
+                bell.play().catch(() => {});
             }
 
             let content = `<b>${d.user}</b>${d.text || ''}`;
-            
             if (d.file) {
-                if (d.type === 'image') {
-                    // Ждем, пока картинка загрузится, чтобы правильно прокрутить чат
-                    content += `<br><img src="${d.file}" onload="scrollToBottom()">`;
-                }
-                if (d.type === 'audio') {
-                    content += `<br><audio controls src="${d.file}"></audio>`;
-                }
+                if (d.type === 'image') content += `<br><img src="${d.file}" onload="scrollToBottom()">`;
+                if (d.type === 'audio') content += `<br><audio controls src="${d.file}"></audio>`;
             }
             
             li.innerHTML = content;
@@ -210,18 +180,18 @@
             typingStatus.style.opacity = '0';
         });
 
-        // --- ОТПРАВКА ---
+        // Отправка текста
         document.getElementById('f').onsubmit = (e) => {
             e.preventDefault();
             if (input.value.trim()) {
                 socket.emit('chat message', { user: myName, text: input.value });
                 input.value = '';
                 socket.emit('stop typing');
-                input.focus(); // Оставляем фокус на поле после отправки
+                scrollToBottom();
             }
         };
 
-        // --- ФАЙЛЫ ---
+        // Отправка картинок
         document.getElementById('fi').onchange = function() {
             const file = this.files[0];
             if (file) {
@@ -229,12 +199,12 @@
                 r.readAsDataURL(file);
                 r.onload = () => {
                     socket.emit('chat message', { user: myName, file: r.result, type: 'image' });
-                    this.value = ''; // Очищаем инпут
+                    this.value = ''; 
                 };
             }
         };
 
-        // --- ГОЛОСОВЫЕ ---
+        // Запись голосовых
         let rec;
         let chunks = [];
         const recBtn = document.getElementById('rec-btn');
@@ -255,23 +225,18 @@
                     };
                     rec.start();
                     recBtn.classList.add('rec-active');
-                } catch(e) { 
-                    alert("Разрешите доступ к микрофону!"); 
-                }
+                } catch(e) { alert("Разрешите доступ к микрофону!"); }
             } else {
                 rec.stop();
                 recBtn.classList.remove('rec-active');
             }
         };
 
-        // --- ФИКС КЛАВИАТУРЫ ---
-        // Когда выезжает клавиатура, окно меняет размер, и мы должны прокрутить чат вниз
-        window.addEventListener('resize', () => {
-            setTimeout(scrollToBottom, 100);
-        });
-        // Дополнительный фикс для iOS
+        // Обработка клавиатуры на смартфонах (чтобы окно всегда поднималось за ней)
+        window.addEventListener('resize', scrollToBottom);
         input.addEventListener('focus', () => {
-            setTimeout(scrollToBottom, 300);
+            window.scrollTo(0, 0); // Фикс для дерганья экрана на iOS
+            scrollToBottom();
         });
     </script>
 </body>
