@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Чат с уведомлениями</title>
+    <title>MegaChat Sound</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { font-family: sans-serif; margin: 0; background: #e5ddd5; display: flex; flex-direction: column; height: 100vh; }
+        body { font-family: sans-serif; margin: 0; background: #e5ddd5; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         #messages { list-style: none; padding: 10px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
         #messages li { padding: 10px; border-radius: 10px; background: white; max-width: 85%; font-size: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         #messages li.my { background: #dcf8c6; align-self: flex-end; }
         .controls { display: flex; padding: 10px; background: #f0f0f0; gap: 8px; align-items: center; border-top: 1px solid #ccc; }
         input#i { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 16px; }
         .btn { background: none; border: none; font-size: 24px; cursor: pointer; }
-        .send { background: #25d366; color: white; border-radius: 50%; width: 45px; height: 45px; border: none; font-size: 20px; }
+        .send { background: #25d366; color: white; border-radius: 50%; width: 45px; height: 45px; border: none; font-size: 20px; cursor: pointer; }
         img { max-width: 100%; border-radius: 8px; }
     </style>
 </head>
@@ -33,28 +33,17 @@
         let name = localStorage.getItem('user') || prompt("Ваше имя:") || "Аноним";
         localStorage.setItem('user', name);
 
-        // ЗАПРОС РАЗРЕШЕНИЯ НА УВЕДОМЛЕНИЯ
-        if (Notification.permission !== "granted") {
-            Notification.requestPermission();
+        // --- ЗВУКОВОЕ УВЕДОМЛЕНИЕ ---
+        // Используем стандартный звук уведомления
+        const notificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+
+        function playSound() {
+            notificationSound.play().catch(e => {
+                console.log("Звук заблокирован. Нужно кликнуть по странице один раз.");
+            });
         }
 
-        // ФУНКЦИЯ ДЛЯ ПОКАЗА УВЕДОМЛЕНИЯ
-        function showNotification(data) {
-            // Показываем только если вкладка скрыта и автор не ты сам
-            if (document.hidden && data.user !== name) {
-                const n = new Notification("Новое сообщение в чате", {
-                    body: `${data.user}: ${data.text || (data.type === 'image' ? '📷 Фото' : '🎤 Голосовое')}`,
-                    icon: 'https://cdn-icons-png.flaticon.com/512/733/733585.png' // Иконка чата
-                });
-                
-                n.onclick = () => {
-                    window.focus();
-                    n.close();
-                };
-            }
-        }
-
-        // Код для ГС (оставляем старый)
+        // --- ГОЛОСОВЫЕ ---
         let mediaRecorder;
         let audioChunks = [];
         const recBtn = document.getElementById('rec-btn');
@@ -76,35 +65,42 @@
                     };
                     mediaRecorder.start();
                     recBtn.style.color = "red";
-                } catch(e) { alert("Ошибка микрофона"); }
+                } catch(e) { alert("Микрофон недоступен"); }
             } else {
                 mediaRecorder.stop();
                 recBtn.style.color = "black";
             }
         };
 
-        // ОТПРАВКА
+        // --- ОТПРАВКА ---
         document.getElementById('f').onsubmit = (e) => {
             e.preventDefault();
             const i = document.getElementById('i');
-            const file = document.getElementById('fi').files[0];
-            if (file) {
+            const fileInput = document.getElementById('fi');
+            
+            if (fileInput.files[0]) {
                 const r = new FileReader();
-                r.readAsDataURL(file);
+                r.readAsDataURL(fileInput.files[0]);
                 r.onload = () => {
                     socket.emit('chat message', { user: name, text: i.value, file: r.result, type: 'image' });
-                    document.getElementById('fi').value = '';
+                    fileInput.value = '';
                 };
-            } else if (i.value) {
+            } else if (i.value.trim()) {
                 socket.emit('chat message', { user: name, text: i.value });
             }
             i.value = '';
         };
 
-        // ПОЛУЧЕНИЕ
+        // --- ПОЛУЧЕНИЕ ---
         socket.on('chat message', d => {
             const li = document.createElement('li');
-            if (d.user === name) li.className = 'my';
+            if (d.user === name) {
+                li.className = 'my';
+            } else {
+                // Если сообщение от другого человека — ИГРАЕМ ЗВУК
+                playSound();
+            }
+
             let html = `<b>${d.user}</b><br>${d.text || ''}`;
             if (d.file) {
                 if (d.type === 'image') html += `<br><img src="${d.file}">`;
@@ -113,9 +109,6 @@
             li.innerHTML = html;
             document.getElementById('messages').appendChild(li);
             document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
-            
-            // ВЫЗОВ УВЕДОМЛЕНИЯ
-            showNotification(d);
         });
     </script>
 </body>
