@@ -3,152 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MegaChat Mobile</title>
+    <title>Чат</title>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            background: #e5ddd5; 
-            margin: 0; 
-            display: flex; 
-            flex-direction: column; 
-            height: 100vh; 
-            overflow: hidden;
-        }
-
-        /* Список сообщений */
-        #messages { 
-            list-style: none; 
-            padding: 10px; 
-            flex: 1; 
-            overflow-y: auto; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 8px; 
-            padding-bottom: 20px;
-        }
-        #messages li { 
-            padding: 8px 12px; 
-            border-radius: 12px; 
-            background: white; 
-            max-width: 85%; 
-            font-size: 16px;
-            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
-            word-wrap: break-word;
-        }
-        #messages li.my { 
-            background: #dcf8c6; 
-            align-self: flex-end; 
-        }
-        
-        /* Панель управления (низ) */
-        .controls { 
-            display: flex; 
-            padding: 8px; 
-            background: #f0f0f0; 
-            gap: 5px; 
-            align-items: center; 
-            border-top: 1px solid #ccc; 
-            padding-bottom: env(safe-area-inset-bottom); /* Поддержка айфонов с челкой */
-        }
-        
-        input#i { 
-            flex: 1; 
-            padding: 10px 15px; 
-            border: 1px solid #ddd; 
-            border-radius: 25px; 
-            outline: none; 
-            font-size: 16px; /* 16px предотвращает авто-зум в iOS */
-            background: white;
-        }
-        
-        .btn { 
-            background: none; 
-            border: none; 
-            cursor: pointer; 
-            font-size: 22px; 
-            padding: 5px; 
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .send-btn { 
-            background: #25d366; 
-            color: white; 
-            border-radius: 50%; 
-            width: 42px; 
-            height: 42px; 
-            font-size: 18px; 
-            border: none;
-        }
-        
-        .recording { color: red; animation: blink 1s infinite; }
+        body { font-family: sans-serif; margin: 0; background: #e5ddd5; display: flex; flex-direction: column; height: 100vh; }
+        #messages { list-style: none; padding: 10px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        #messages li { padding: 10px; border-radius: 10px; background: white; max-width: 85%; font-size: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        #messages li.my { background: #dcf8c6; align-self: flex-end; }
+        .controls { display: flex; padding: 10px; background: #f0f0f0; gap: 8px; align-items: center; border-top: 1px solid #ccc; }
+        input#i { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 16px; }
+        .btn { background: none; border: none; font-size: 24px; cursor: pointer; }
+        .send { background: #25d366; color: white; border-radius: 50%; width: 45px; height: 45px; border: none; font-size: 20px; }
+        img { max-width: 100%; border-radius: 8px; }
+        .rec-active { color: red; animation: blink 1s infinite; }
         @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.3;} 100% {opacity: 1;} }
-        
-        #emoji-picker { 
-            position: absolute; 
-            bottom: 60px; 
-            left: 0; 
-            width: 100%;
-            display: none; 
-            z-index: 100; 
-        }
-        
-        /* Стили для эмодзи-пикера, чтобы он был на весь экран на мобилке */
-        em-emoji-picker {
-            width: 100% !important;
-            height: 300px !important;
-        }
-
-        img { max-width: 100%; border-radius: 8px; margin-top: 5px; }
-        audio { width: 100%; max-width: 240px; margin-top: 5px; }
-        b { font-size: 13px; color: #075e54; }
     </style>
 </head>
 <body>
     <ul id="messages"></ul>
-    <div id="emoji-picker"></div>
-
     <form id="f" class="controls">
-        <button type="button" class="btn" onclick="toggleEmoji()">😊</button>
         <input type="file" id="fi" style="display:none" accept="image/*">
         <button type="button" class="btn" onclick="document.getElementById('fi').click()">🖼️</button>
         <button type="button" id="rec-btn" class="btn">🎤</button>
         <input id="i" autocomplete="off" placeholder="Сообщение...">
-        <button type="submit" class="send-btn">➤</button>
+        <button type="submit" class="send">➤</button>
     </form>
 
     <script>
         const socket = io();
-        let myName = localStorage.getItem('chatUser') || prompt("Ваше имя:") || "Аноним";
-        localStorage.setItem('chatUser', myName);
+        // Используем prompt только если в памяти нет имени
+        let name = localStorage.getItem('user') || prompt("Ваше имя:") || "Аноним";
+        localStorage.setItem('user', name);
 
         let mediaRecorder;
         let audioChunks = [];
-        let currentStream = null;
-
-        // ЭМОДЗИ
-        const picker = new EmojiMart.Picker({ 
-            onEmojiSelect: (emoji) => { document.getElementById('i').value += emoji.native; },
-            locale: 'ru',
-            set: 'apple'
-        });
-        document.getElementById('emoji-picker').appendChild(picker);
-        function toggleEmoji() {
-            const p = document.getElementById('emoji-picker');
-            p.style.display = p.style.display === 'block' ? 'none' : 'block';
-        }
 
         // ГОЛОСОВЫЕ
         const recBtn = document.getElementById('rec-btn');
         recBtn.onclick = async () => {
             if (!mediaRecorder || mediaRecorder.state === "inactive") {
                 try {
-                    currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(currentStream);
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
                     audioChunks = [];
                     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
                     mediaRecorder.onstop = () => {
@@ -156,53 +53,50 @@
                         const reader = new FileReader();
                         reader.readAsDataURL(blob);
                         reader.onloadend = () => {
-                            socket.emit('chat message', { user: myName, file: reader.result, type: 'audio' });
+                            socket.emit('chat message', { user: name, file: reader.result, type: 'audio' });
                         };
-                        currentStream.getTracks().forEach(track => track.stop());
+                        stream.getTracks().forEach(t => t.stop());
                     };
                     mediaRecorder.start();
-                    recBtn.classList.add('recording');
-                    recBtn.innerText = "🛑";
-                } catch(e) { alert("Микрофон недоступен"); }
+                    recBtn.classList.add('rec-active');
+                } catch(e) { alert("Ошибка микрофона: " + e.message); }
             } else {
                 mediaRecorder.stop();
-                recBtn.classList.remove('recording');
-                recBtn.innerText = "🎤";
+                recBtn.classList.remove('rec-active');
             }
         };
 
-        function addMsg(data) {
-            const li = document.createElement('li');
-            if (data.user === myName) li.className = 'my';
-            let content = `<b>${data.user}</b><br>${data.text || ''}`;
-            if (data.file) {
-                if (data.type === 'image') content += `<br><img src="${data.file}">`;
-                if (data.type === 'audio') content += `<br><audio controls src="${data.file}"></audio>`;
-            }
-            li.innerHTML = content;
-            document.getElementById('messages').appendChild(li);
-            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
-        }
-
+        // ОТПРАВКА
         document.getElementById('f').onsubmit = (e) => {
             e.preventDefault();
             const i = document.getElementById('i');
             const file = document.getElementById('fi').files[0];
             if (file) {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => {
-                    socket.emit('chat message', { user: myName, text: i.value, file: reader.result, type: 'image' });
+                const r = new FileReader();
+                r.readAsDataURL(file);
+                r.onload = () => {
+                    socket.emit('chat message', { user: name, text: i.value, file: r.result, type: 'image' });
                     document.getElementById('fi').value = '';
                 };
             } else if (i.value) {
-                socket.emit('chat message', { user: myName, text: i.value });
+                socket.emit('chat message', { user: name, text: i.value });
             }
             i.value = '';
-            document.getElementById('emoji-picker').style.display = 'none';
         };
 
-        socket.on('chat message', d => addMsg(d));
+        // ПОЛУЧЕНИЕ
+        socket.on('chat message', d => {
+            const li = document.createElement('li');
+            if (d.user === name) li.className = 'my';
+            let html = `<b>${d.user}</b><br>${d.text || ''}`;
+            if (d.file) {
+                if (d.type === 'image') html += `<br><img src="${d.file}">`;
+                if (d.type === 'audio') html += `<br><audio controls src="${d.file}"></audio>`;
+            }
+            li.innerHTML = html;
+            document.getElementById('messages').appendChild(li);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+        });
     </script>
 </body>
 </html>
