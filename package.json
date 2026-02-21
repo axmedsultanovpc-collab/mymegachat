@@ -1,12 +1,18 @@
-﻿{
-  "name": "my-socket-chat",
+{
+  "name": "megachat",
   "version": "1.0.0",
+  "description": "MegaChat with MongoDB and Cloudinary",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "socket.io": "^4.7.2"
+    "socket.io": "^4.7.2",
+    "mongoose": "^8.0.0",
+    "cloudinary": "^1.41.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
