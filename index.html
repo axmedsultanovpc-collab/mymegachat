@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Чат</title>
+    <title>Чат с уведомлениями</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -16,8 +16,6 @@
         .btn { background: none; border: none; font-size: 24px; cursor: pointer; }
         .send { background: #25d366; color: white; border-radius: 50%; width: 45px; height: 45px; border: none; font-size: 20px; }
         img { max-width: 100%; border-radius: 8px; }
-        .rec-active { color: red; animation: blink 1s infinite; }
-        @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.3;} 100% {opacity: 1;} }
     </style>
 </head>
 <body>
@@ -32,14 +30,33 @@
 
     <script>
         const socket = io();
-        // Используем prompt только если в памяти нет имени
         let name = localStorage.getItem('user') || prompt("Ваше имя:") || "Аноним";
         localStorage.setItem('user', name);
 
+        // ЗАПРОС РАЗРЕШЕНИЯ НА УВЕДОМЛЕНИЯ
+        if (Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+
+        // ФУНКЦИЯ ДЛЯ ПОКАЗА УВЕДОМЛЕНИЯ
+        function showNotification(data) {
+            // Показываем только если вкладка скрыта и автор не ты сам
+            if (document.hidden && data.user !== name) {
+                const n = new Notification("Новое сообщение в чате", {
+                    body: `${data.user}: ${data.text || (data.type === 'image' ? '📷 Фото' : '🎤 Голосовое')}`,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/733/733585.png' // Иконка чата
+                });
+                
+                n.onclick = () => {
+                    window.focus();
+                    n.close();
+                };
+            }
+        }
+
+        // Код для ГС (оставляем старый)
         let mediaRecorder;
         let audioChunks = [];
-
-        // ГОЛОСОВЫЕ
         const recBtn = document.getElementById('rec-btn');
         recBtn.onclick = async () => {
             if (!mediaRecorder || mediaRecorder.state === "inactive") {
@@ -58,11 +75,11 @@
                         stream.getTracks().forEach(t => t.stop());
                     };
                     mediaRecorder.start();
-                    recBtn.classList.add('rec-active');
-                } catch(e) { alert("Ошибка микрофона: " + e.message); }
+                    recBtn.style.color = "red";
+                } catch(e) { alert("Ошибка микрофона"); }
             } else {
                 mediaRecorder.stop();
-                recBtn.classList.remove('rec-active');
+                recBtn.style.color = "black";
             }
         };
 
@@ -96,6 +113,9 @@
             li.innerHTML = html;
             document.getElementById('messages').appendChild(li);
             document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+            
+            // ВЫЗОВ УВЕДОМЛЕНИЯ
+            showNotification(d);
         });
     </script>
 </body>
