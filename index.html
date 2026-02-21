@@ -3,43 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cloud Chat + Typing</title>
+    <title>MegaChat Final</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-
-        .header { padding: 15px 20px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); color: white; border-bottom: 1px solid rgba(255, 255, 255, 0.2); z-index: 1001; }
-        .status-info { display: flex; flex-direction: column; }
-        .status-row { display: flex; align-items: center; }
-        .status-dot { width: 8px; height: 8px; background: #2ecc71; border-radius: 50%; margin-right: 8px; box-shadow: 0 0 10px #2ecc71; }
         
-        /* Стиль надписи "печатает" */
-        #typing-indicator { font-size: 12px; color: #dcf8c6; margin-top: 4px; height: 14px; opacity: 0; transition: 0.3s; }
+        body { 
+            font-family: -apple-system, system-ui, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+        }
 
-        #messages { list-style: none; padding: 20px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 90px; }
-        #messages li { padding: 12px 16px; border-radius: 18px; background: rgba(255, 255, 255, 0.9); color: #333; max-width: 80%; font-size: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); animation: fadeIn 0.3s ease; }
-        #messages li.my { background: #25d366; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Шапка */
+        .header {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            color: white;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1001;
+        }
+        .header h1 { font-size: 18px; }
+        #typing-status { font-size: 13px; color: #adff2f; height: 15px; font-style: italic; opacity: 0; transition: 0.3s; }
 
-        .controls { display: flex; padding: 15px; background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(15px); gap: 10px; align-items: center; position: fixed; bottom: 0; left: 0; right: 0; border-top: 1px solid rgba(255, 255, 255, 0.2); z-index: 1000; }
-        input#i { flex: 1; padding: 12px 20px; border: none; border-radius: 25px; outline: none; font-size: 16px; background: white; }
-        .btn { background: none; border: none; font-size: 24px; cursor: pointer; color: white; }
-        .send { background: white; color: #764ba2; border-radius: 50%; width: 45px; height: 45px; border: none; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        img { max-width: 100%; border-radius: 12px; margin-top: 8px; }
-        audio { height: 35px; margin-top: 8px; filter: invert(100%); }
+        /* Область сообщений */
+        #messages { 
+            list-style: none; 
+            padding: 15px; 
+            flex: 1; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px;
+            /* ВАЖНО: огромный отступ снизу, чтобы панель не закрывала текст */
+            padding-bottom: 100px; 
+        }
+
+        #messages li { 
+            padding: 10px 15px; 
+            border-radius: 15px; 
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            max-width: 85%; 
+            font-size: 16px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            word-wrap: break-word;
+        }
+
+        #messages li.my { 
+            background: #25d366; 
+            color: white;
+            align-self: flex-end; 
+            border-bottom-right-radius: 2px;
+        }
+        
+        #messages li b { display: block; font-size: 12px; margin-bottom: 3px; opacity: 0.8; }
+
+        /* Панель управления */
+        .controls { 
+            display: flex; 
+            padding: 10px; 
+            background: #f0f0f0; 
+            gap: 10px; 
+            align-items: center; 
+            position: fixed; 
+            bottom: 0; left: 0; right: 0; 
+            z-index: 1000;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+
+        input#i { 
+            flex: 1; 
+            padding: 12px 15px; 
+            border: 1px solid #ccc; 
+            border-radius: 25px; 
+            outline: none; 
+            font-size: 16px; 
+        }
+
+        .btn { background: none; border: none; font-size: 26px; cursor: pointer; display: flex; align-items: center; }
+        
+        .send-btn { 
+            background: #25d366; 
+            color: white; 
+            border-radius: 50%; 
+            width: 45px; height: 45px; 
+            border: none; font-size: 20px; 
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        img { max-width: 100%; border-radius: 10px; margin-top: 5px; display: block; }
+        audio { width: 100%; height: 40px; margin-top: 5px; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="status-info">
-            <div class="status-row">
-                <div class="status-dot"></div>
-                <h1>Наш Чат</h1>
-            </div>
-            <div id="typing-indicator"></div>
-        </div>
+        <h1>Чат Онлайн</h1>
+        <div id="typing-status">печатает...</div>
     </div>
 
     <ul id="messages"></ul>
@@ -49,81 +114,99 @@
         <button type="button" class="btn" onclick="document.getElementById('fi').click()">🖼️</button>
         <button type="button" id="rec-btn" class="btn">🎤</button>
         <input id="i" autocomplete="off" placeholder="Сообщение...">
-        <button type="submit" class="send">➤</button>
+        <button type="submit" class="send-btn">➤</button>
     </form>
 
     <script>
         const socket = io();
-        let name = localStorage.getItem('user') || prompt("Никнейм:") || "Аноним";
+        let name = localStorage.getItem('user') || prompt("Твой ник:") || "Аноним";
         localStorage.setItem('user', name);
 
-        const typingIndicator = document.getElementById('typing-indicator');
+        const msgList = document.getElementById('messages');
+        const typingStatus = document.getElementById('typing-status');
         const input = document.getElementById('i');
-        let typingTimeout;
+        
+        // ЗВУК (используем надежную ссылку)
+        const bell = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
 
-        // ЛОГИКА "ПЕЧАТАЕТ"
-        input.addEventListener('keypress', () => {
+        // --- ЛОГИКА ПЕЧАТАЕТ ---
+        let tTimer;
+        input.addEventListener('input', () => {
             socket.emit('typing', name);
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                socket.emit('stop typing');
-            }, 2000);
+            clearTimeout(tTimer);
+            tTimer = setTimeout(() => socket.emit('stop typing'), 2000);
         });
 
-        socket.on('user typing', (userName) => {
-            typingIndicator.innerText = `${userName} печатает...`;
-            typingIndicator.style.opacity = '1';
+        socket.on('user typing', (uName) => {
+            typingStatus.innerText = uName + ' печатает...';
+            typingStatus.style.opacity = '1';
         });
 
         socket.on('user stop typing', () => {
-            typingIndicator.style.opacity = '0';
+            typingStatus.style.opacity = '0';
         });
 
-        // ПРИЕМ СООБЩЕНИЙ
+        // --- ПОЛУЧЕНИЕ СООБЩЕНИЙ ---
         socket.on('chat message', d => {
             const li = document.createElement('li');
-            if (d.user === name) li.className = 'my';
-            li.innerHTML = `<b>${d.user}</b><br>${d.text || ''}`;
-            if (d.file) {
-                if (d.type === 'image') li.innerHTML += `<br><img src="${d.file}">`;
-                if (d.type === 'audio') li.innerHTML += `<br><audio controls src="${d.file}"></audio>`;
+            if (d.user === name) {
+                li.className = 'my';
+            } else {
+                bell.play().catch(() => {}); // Звук для чужих сообщений
             }
-            document.getElementById('messages').appendChild(li);
-            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
-            typingIndicator.style.opacity = '0'; // Скрыть статус, если пришло сообщение
+
+            let content = `<b>${d.user}</b>${d.text || ''}`;
+            if (d.file) {
+                if (d.type === 'image') content += `<br><img src="${d.file}">`;
+                if (d.type === 'audio') content += `<br><audio controls src="${d.file}"></audio>`;
+            }
+            li.innerHTML = content;
+            msgList.appendChild(li);
+
+            // АВТО-ПРОКРУТКА ВНИЗ
+            msgList.scrollTo({ top: msgList.scrollHeight, behavior: 'smooth' });
         });
 
-        // Отправка (форма)
+        // --- ОТПРАВКА ---
         document.getElementById('f').onsubmit = (e) => {
             e.preventDefault();
-            if (input.value.trim()) {
+            const file = document.getElementById('fi').files[0];
+            if (file) {
+                const r = new FileReader();
+                r.readAsDataURL(file);
+                r.onload = () => {
+                    socket.emit('chat message', { user: name, text: input.value, file: r.result, type: 'image' });
+                    document.getElementById('fi').value = '';
+                    input.value = '';
+                };
+            } else if (input.value.trim()) {
                 socket.emit('chat message', { user: name, text: input.value });
-                socket.emit('stop typing');
                 input.value = '';
             }
+            socket.emit('stop typing');
         };
 
-        // Запись ГС
-        let mediaRecorder;
+        // --- ГОЛОСОВЫЕ ---
+        let rec;
         let chunks = [];
         document.getElementById('rec-btn').onclick = async () => {
-            if (!mediaRecorder || mediaRecorder.state === "inactive") {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
+            if (!rec || rec.state === "inactive") {
+                const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+                rec = new MediaRecorder(s);
                 chunks = [];
-                mediaRecorder.ondataavailable = e => chunks.push(e.data);
-                mediaRecorder.onstop = () => {
+                rec.ondataavailable = e => chunks.push(e.data);
+                rec.onstop = () => {
                     const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
-                    const r = new FileReader();
-                    r.readAsDataURL(blob);
-                    r.onloadend = () => socket.emit('chat message', { user: name, file: r.result, type: 'audio' });
-                    stream.getTracks().forEach(t => t.stop());
+                    const reader = new FileReader();
+                    reader.readAsDataURL(blob);
+                    reader.onloadend = () => socket.emit('chat message', { user: name, file: reader.result, type: 'audio' });
+                    s.getTracks().forEach(t => t.stop());
                 };
-                mediaRecorder.start();
-                document.getElementById('rec-btn').style.color = "red";
+                rec.start();
+                document.getElementById('rec-btn').style.filter = "drop-shadow(0 0 5px red)";
             } else {
-                mediaRecorder.stop();
-                document.getElementById('rec-btn').style.color = "white";
+                rec.stop();
+                document.getElementById('rec-btn').style.filter = "none";
             }
         };
     </script>
